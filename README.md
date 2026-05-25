@@ -45,7 +45,7 @@ Overall test metrics:
 Create a Python 3.11 environment, install dependencies, and run:
 
 ```bash
-python -m src.train --report-to none
+python -m src.train
 python -m src.evaluate --adapter-path results/lora-biobert-bc5cdr
 ```
 
@@ -61,7 +61,7 @@ Use a GPU notebook with Internet enabled:
 %cd biomedical-ner-finetune
 !pip uninstall -y bitsandbytes
 !pip install -r requirements.txt
-!python -m src.train --report-to none
+!python -m src.train
 !python -m src.evaluate --adapter-path results/lora-biobert-bc5cdr
 ```
 

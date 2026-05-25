@@ -192,7 +192,7 @@ class TrainingConfig:
 
     # --- Logging ---
     logging_steps: int = 50
-    report_to: str = "wandb"          # Use CLI --report-to none to disable W&B
+    report_to: str = "none"           # Use CLI --report-to wandb to enable W&B tracking
     run_name: Optional[str] = None    # W&B run name; None lets W&B auto-generate
 
     # Reproducibility
