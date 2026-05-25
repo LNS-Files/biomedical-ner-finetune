@@ -25,20 +25,20 @@ BioBERT with LoRA, and evaluates entity-level precision, recall, and F1.
 
 ## Results
 
-BC5CDR test set, LoRA BioBERT adapter — **pending retraining with updated config**
-(rank=32, class-weighted loss, 10 epochs; numbers below are from the initial run):
+BC5CDR test set, LoRA BioBERT adapter with rank 32, class-weighted loss, and
+10 training epochs:
 
-| Entity | Precision | Recall | F1 | Support |
-| --- | ---: | ---: | ---: | ---: |
-| Chemical | 0.7067 | 0.7195 | 0.7130 | 4902 |
-| Disease | 0.4797 | 0.1500 | 0.2285 | 4254 |
-| Micro avg | 0.6589 | 0.4549 | 0.5382 | 9156 |
+| Entity    | Precision | Recall |   F1   | Support |
+| ---       |   ---:    |  ---:  |  ---:  |  ---:   |
+| Chemical  |  0.8093   | 0.9323 | 0.8664 |  4902   |
+| Disease   |  0.5576   | 0.8230 | 0.6648 |  4254   |
+| Micro avg |  0.6768   | 0.8815 | 0.7657 |  9156   |
 
-Overall test metrics (initial run):
+Overall test metrics:
 
-- F1: `0.5382`
-- Precision: `0.6589`
-- Recall: `0.4549`
+- F1: `0.7657`
+- Precision: `0.6768`
+- Recall: `0.8815`
 
 ## Run Locally
 
@@ -59,6 +59,7 @@ Use a GPU notebook with Internet enabled:
 ```python
 !git clone https://github.com/LNS-Files/biomedical-ner-finetune.git
 %cd biomedical-ner-finetune
+!pip uninstall -y bitsandbytes
 !pip install -r requirements.txt
 !python -m src.train --report-to none
 !python -m src.evaluate --adapter-path results/lora-biobert-bc5cdr

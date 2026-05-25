@@ -5,7 +5,7 @@ datasets==2.18.0               # BC5CDR bigbio config is stable from this versio
 bioc==2.1                      # Required by the BigBio BC5CDR dataset loader
 peft==0.10.0                   # LoRA for encoder models landed cleanly in 0.10
 accelerate==0.29.3             # Required by PEFT trainer; must be compatible with transformers
-bitsandbytes==0.43.1           # QLoRA quantization; 0.43+ has stable Windows/Linux parity
+bitsandbytes==0.44.0           # 0.44+ removes the triton.ops dependency that breaks on Kaggle's Python 3.12
 
 # Evaluation
 seqeval==1.2.2                 # Standard NER metric library (span-level F1)
