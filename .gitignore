@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Model artifacts (large — store on HuggingFace Hub or Kaggle output instead)
+results/checkpoints/
+results/**/checkpoint-*/
+results/*.bin
+results/**/*.bin
+results/*.safetensors
+results/**/*.safetensors
+results/*.pt
+results/**/*.pt
+results/*.ckpt
+results/**/*.ckpt
+
+# Notebook / evaluation scratch outputs
+tmp_eval_*/
+results/*.log
+
+# Keep results structure but ignore large files
+!results/.gitkeep
+
+# Weights & Biases
+wandb/
+.wandb/
+
+# HuggingFace cache
+.cache/
+
+# Environment / secrets
+.env
+*.env
+secrets.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Data (HuggingFace datasets cache — re-downloadable)
+data/
+*.arrow
+*.parquet
+
+# Logs
+*.log
+logs/

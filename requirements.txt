@@ -1,0 +1,24 @@
+# Core training stack
+torch==2.2.2                   # Kaggle P100 ships CUDA 12.1; 2.2.x is the stable match
+transformers==4.40.2           # 4.40+ required for PEFT integration fixes in token classifiers
+datasets==2.18.0               # BC5CDR bigbio config is stable from this version
+peft==0.10.0                   # LoRA for encoder models landed cleanly in 0.10
+accelerate==0.29.3             # Required by PEFT trainer; must be compatible with transformers
+bitsandbytes==0.43.1           # QLoRA quantization; 0.43+ has stable Windows/Linux parity
+
+# Evaluation
+seqeval==1.2.2                 # Standard NER metric library (span-level F1)
+evaluate==0.4.1                # HuggingFace evaluate wrapper used in Trainer callbacks
+
+# Experiment tracking
+wandb==0.16.6                  # Free tier works on Kaggle; set WANDB_MODE=offline if needed
+
+# Utilities
+numpy==1.26.4                  # Pin to <2.0 — several deps still have numpy 2.x issues
+scikit-learn==1.4.2            # seqeval dependency
+tqdm==4.66.2
+huggingface-hub==0.22.2        # For saving/loading adapters to HF Hub
+
+# Notebook (Kaggle environment)
+ipykernel==6.29.4
+ipywidgets==8.1.2
