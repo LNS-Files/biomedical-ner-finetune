@@ -124,7 +124,7 @@ def _apply_lora(model: PreTrainedModel, lora_cfg: LoraConfig) -> PeftModel:
 
     Two distinct PEFT parameters are easy to confuse:
 
-    target_modules = ["query", "value"]
+    target_modules = ["query", "key", "value"]
         Which weight matrices get LoRA adapters. These matrices are split into
         W = W_frozen + B@A. Only A and B are trainable. W_frozen never moves.
 
@@ -144,10 +144,10 @@ def _apply_lora(model: PreTrainedModel, lora_cfg: LoraConfig) -> PeftModel:
     """
     peft_config = PeftLoraConfig(
         task_type=TaskType.TOKEN_CLS,         # encoder token classification
-        r=lora_cfg.r,                          # low-rank dimension (16)
-        lora_alpha=lora_cfg.lora_alpha,        # scale factor (32 = 2 * rank)
+        r=lora_cfg.r,                          # low-rank dimension
+        lora_alpha=lora_cfg.lora_alpha,        # scale factor, usually 2 * rank
         lora_dropout=lora_cfg.lora_dropout,    # dropout on adapter layers (0.1)
-        target_modules=lora_cfg.target_modules,  # ["query", "value"]
+        target_modules=lora_cfg.target_modules,
         bias=lora_cfg.bias,                    # "none" — don't train bias terms
         modules_to_save=["classifier"],        # fully train + save the NER head
     )

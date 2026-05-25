@@ -22,6 +22,7 @@ import os
 from typing import Dict, List, Optional
 
 import numpy as np
+import torch
 from peft import PeftModel
 from seqeval.metrics import classification_report, f1_score, precision_score, recall_score
 from transformers import (
@@ -32,7 +33,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from src.config import QLoRATrainingConfig, TrainingConfig
+from src.config import QLoRAConfig, QLoRATrainingConfig, TrainingConfig
 from src.data import get_datasets, get_label_info
 from src.model import _get_bnb_config
 
@@ -80,7 +81,6 @@ def load_adapter_model(
         "ignore_mismatched_sizes": True,
     }
 
-    from src.config import QLoRAConfig
     if isinstance(cfg.lora, QLoRAConfig):
         load_kwargs["quantization_config"] = _get_bnb_config(cfg.lora)
         load_kwargs["device_map"] = "auto"
@@ -189,7 +189,7 @@ def evaluate(cfg: TrainingConfig, adapter_path: Optional[str] = None) -> Dict[st
     eval_args = TrainingArguments(
         output_dir=f"tmp_eval_{run_label}",
         per_device_eval_batch_size=cfg.per_device_eval_batch_size,
-        fp16=cfg.fp16,
+        fp16=cfg.fp16 and torch.cuda.is_available(),
         report_to="none",
         label_names=["labels"],
         remove_unused_columns=False,

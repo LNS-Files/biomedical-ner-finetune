@@ -17,7 +17,7 @@ import argparse
 import inspect
 import logging
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import numpy as np
 import torch
@@ -107,6 +107,46 @@ def make_compute_metrics(id2label: Dict[int, str]):
 
 
 # ---------------------------------------------------------------------------
+# Weighted loss Trainer
+# ---------------------------------------------------------------------------
+
+class WeightedTrainer(Trainer):
+    """Trainer subclass that applies per-class weights to the token-classification loss.
+
+    Why subclass instead of using label_smoothing or a built-in option?
+    HuggingFace Trainer's built-in CrossEntropyLoss is unweighted. The only hook
+    for replacing the loss function is overriding compute_loss — there's no
+    TrainingArguments field for class weights.
+
+    Weight order must match DataConfig.label_names:
+        [O, B-Chemical, I-Chemical, B-Disease, I-Disease]
+        [1.0,   5.0,       5.0,       10.0,      10.0  ]
+
+    We pop "labels" from inputs before the forward pass so the model doesn't
+    compute its own (unweighted) internal loss — we compute ours instead.
+    The returned loss is what Trainer uses for the backward pass.
+    """
+
+    def __init__(self, class_weights: torch.Tensor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Register as a buffer-like attribute; moved to the correct device in compute_loss.
+        self.class_weights = class_weights
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        logits = outputs.get("logits")  # [batch, seq_len, num_labels]
+
+        loss_fct = torch.nn.CrossEntropyLoss(
+            weight=self.class_weights.to(logits.device),
+            ignore_index=-100,  # skip [CLS]/[SEP]/[PAD] and subword continuations
+        )
+        loss = loss_fct(logits.reshape(-1, logits.shape[-1]), labels.reshape(-1))
+
+        return (loss, outputs) if return_outputs else loss
+
+
+# ---------------------------------------------------------------------------
 # TrainingArguments builder
 # ---------------------------------------------------------------------------
 
@@ -190,7 +230,7 @@ def build_trainer(
     datasets,
     tokenizer,
     id2label: Dict[int, str],
-) -> Trainer:
+) -> WeightedTrainer:
     """Assemble the HuggingFace Trainer.
 
     DataCollatorForTokenClassification:
@@ -200,11 +240,16 @@ def build_trainer(
         It also pads the labels tensor in parallel, using -100 as the pad label
         so those positions are automatically ignored by the loss.
 
-    EarlyStoppingCallback(early_stopping_patience=2):
-        Stop training if eval_f1 has not improved for 2 consecutive evaluations.
-        With eval_strategy="epoch" and num_train_epochs=5, this means we stop
-        after epoch 3 if epochs 2 and 3 both failed to beat epoch 1's F1.
-        This prevents wasting Kaggle GPU time on overfitting epochs.
+    WeightedTrainer:
+        Uses cfg.class_weights to upweight B-Disease / I-Disease tokens in the
+        cross-entropy loss. Standard Trainer predicts "O" for most Disease tokens
+        because O dominates the token distribution. Weighting forces the loss to
+        penalise Disease misses more heavily, improving recall for that class.
+
+    EarlyStoppingCallback(early_stopping_patience=cfg.early_stopping_patience):
+        Stop training if eval_f1 has not improved for N consecutive evaluations.
+        N=3 (raised from 2) gives Disease entities more time to converge after
+        Chemical entities plateau — patience=2 fired too early in prior runs.
         Requires load_best_model_at_end=True (already set in TrainingConfig).
     """
     collator = DataCollatorForTokenClassification(
@@ -214,15 +259,17 @@ def build_trainer(
     )
 
     training_args = build_training_args(cfg)
+    class_weights = torch.tensor(cfg.class_weights, dtype=torch.float32)
 
-    trainer = Trainer(
+    trainer = WeightedTrainer(
+        class_weights=class_weights,
         model=model,
         args=training_args,
         train_dataset=datasets["train"],
         eval_dataset=datasets["validation"],
         data_collator=collator,
         compute_metrics=make_compute_metrics(id2label),
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=cfg.early_stopping_patience)],
     )
 
     return trainer

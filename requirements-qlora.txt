@@ -1,0 +1,3 @@
+# Optional QLoRA dependency.
+# Install only when running --qlora in a CUDA environment that supports bitsandbytes.
+bitsandbytes==0.43.1

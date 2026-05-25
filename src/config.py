@@ -50,18 +50,17 @@ class DataConfig:
 @dataclass
 class LoraConfig:
     # LoRA decomposes weight updates as W' = W + (A @ B) * (alpha / rank).
-    # rank=16: controls the dimensionality of the low-rank update matrices.
+    # rank=32: raised from 16 to give the adapter more capacity to capture Disease
+    # entity patterns, which are contextually richer than Chemical names.
     # Lower rank (4-8) = fewer parameters, higher regularization, may underfit.
     # Higher rank (32-64) = more expressive but risks overfitting on small datasets.
-    # Rank 16 is the empirical sweet spot for BERT-scale models on domain NER tasks.
-    # Rule of thumb: start at 16, halve it if you see overfitting after epoch 1.
-    r: int = 16
+    r: int = 32
 
     # alpha controls the effective learning rate of the LoRA update.
-    # The weight update is scaled by alpha/rank. Setting alpha = 2*rank (here: 32)
+    # The weight update is scaled by alpha/rank. Setting alpha = 2*rank (here: 64)
     # keeps the update scale constant regardless of rank choice — this means you can
     # change rank without retuning your learning rate. It's the standard default.
-    lora_alpha: int = 32
+    lora_alpha: int = 64
 
     # Dropout on the LoRA layers. 0.1 is a light regularizer; BC5CDR training set
     # is ~4500 sentences, small enough that some dropout helps generalization.
@@ -69,10 +68,10 @@ class LoraConfig:
 
     # Which weight matrices to apply LoRA to.
     # BERT's attention block has 4 matrices: query (q), key (k), value (v),
-    # and output projection (o). Targeting only q and v is the original LoRA paper
-    # recommendation — k and o are less sensitive to task-specific adaptation.
-    # If F1 plateaus below target, add "key" and "value" here and retrain.
-    target_modules: List[str] = field(default_factory=lambda: ["query", "value"])
+    # and output projection (o). Adding "key" to the original q+v recommendation
+    # gives the adapter more control over attention routing, which helps with
+    # contextual Disease entities whose boundaries depend on surrounding words.
+    target_modules: List[str] = field(default_factory=lambda: ["query", "key", "value"])
 
     # Bias handling: "none" means we don't train any bias terms in LoRA layers.
     # "none" is standard — bias parameters are a tiny fraction of total params and
@@ -91,7 +90,8 @@ class QLoRAConfig(LoraConfig):
     QLoRA loads the frozen base model in NF4 (Normal Float 4) quantization.
     The LoRA adapters themselves remain in full precision (bfloat16).
     Net effect: ~4x memory reduction on the base model weights.
-    On Kaggle P100 (16GB), this lets you double the batch size or use rank=32.
+    On Kaggle P100 (16GB), this frees enough VRAM to increase per-device batch size
+    or add more target modules without hitting the 16GB ceiling.
     """
     # Whether to load the base model in 4-bit
     load_in_4bit: bool = True
@@ -148,9 +148,16 @@ class TrainingConfig:
     # learning, strong enough to discourage large weight magnitudes.
     weight_decay: float = 0.01
 
-    # Number of training epochs. BC5CDR is small (~4500 train sentences) and LoRA
-    # converges fast. 5 epochs is enough to reach peak F1; beyond that, overfitting.
-    num_train_epochs: int = 5
+    # Number of training epochs. Raised from 5 → 10 because Disease entities require
+    # more gradient steps than Chemical entities (which are morphologically distinctive
+    # and learned quickly). Early stopping still caps the run if the model plateaus.
+    num_train_epochs: int = 10
+
+    # How many consecutive non-improving epochs before early stopping fires.
+    # Raised from 2 → 3: with 10 max epochs and two entity types that may converge
+    # at different rates, patience=2 was too aggressive and killed training before
+    # Disease recall had a chance to climb.
+    early_stopping_patience: int = 3
 
     # Evaluate and checkpoint once per epoch. With ~4500 training samples and
     # batch size 16, one epoch is ~280 steps — frequent enough for early stopping.
@@ -168,6 +175,16 @@ class TrainingConfig:
     # span-level F1 stagnates if the model learns label smoothing artifacts.
     metric_for_best_model: str = "eval_f1"
     greater_is_better: bool = True
+
+    # Per-class loss weights for CrossEntropyLoss, ordered to match DataConfig.label_names:
+    #   index 0 → O           weight 1.0  (dominant class; no amplification needed)
+    #   index 1 → B-Chemical  weight 5.0  (Chemical recall ~72%; moderate boost)
+    #   index 2 → I-Chemical  weight 5.0
+    #   index 3 → B-Disease   weight 10.0 (Disease recall was only 15%; strong boost)
+    #   index 4 → I-Disease   weight 10.0
+    # Rule: weight ∝ 1 / class_frequency at the token level, then scaled so "O" = 1.
+    # If Disease recall is still low after retraining, raise 10.0 → 15.0.
+    class_weights: List[float] = field(default_factory=lambda: [1.0, 5.0, 5.0, 10.0, 10.0])
 
     # Mixed precision: fp16 on P100. P100 doesn't support bfloat16 natively.
     # fp16=True halves memory for activations and speeds up compute ~1.5x.
