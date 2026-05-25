@@ -20,6 +20,7 @@ import os
 from typing import Dict, List, Tuple
 
 import numpy as np
+import torch
 from seqeval.metrics import f1_score, precision_score, recall_score
 from transformers import (
     DataCollatorForTokenClassification,
@@ -151,7 +152,7 @@ def build_training_args(cfg: TrainingConfig) -> TrainingArguments:
         "greater_is_better": cfg.greater_is_better,
 
         # Precision
-        "fp16": cfg.fp16,
+        "fp16": cfg.fp16 and torch.cuda.is_available(),
 
         # Logging
         "logging_steps": cfg.logging_steps,
@@ -162,7 +163,6 @@ def build_training_args(cfg: TrainingConfig) -> TrainingArguments:
         "seed": cfg.seed,
         "label_names": ["labels"],
         "remove_unused_columns": False,
-        "eval_on_start": False,
     }
 
     # Transformers renamed this argument across versions. Supporting both keeps
@@ -170,6 +170,12 @@ def build_training_args(cfg: TrainingConfig) -> TrainingArguments:
     signature = inspect.signature(TrainingArguments.__init__)
     strategy_arg = "eval_strategy" if "eval_strategy" in signature.parameters else "evaluation_strategy"
     args_kwargs[strategy_arg] = cfg.eval_strategy
+
+    if "eval_on_start" in signature.parameters:
+        args_kwargs["eval_on_start"] = False
+
+    if cfg.fp16 and not torch.cuda.is_available():
+        logger.warning("CUDA is not available; disabling fp16 for this run.")
 
     return TrainingArguments(**args_kwargs)
 

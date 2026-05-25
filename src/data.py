@@ -294,7 +294,11 @@ def get_datasets(
         tokenizer          : needed by DataCollatorForTokenClassification in train.py.
     """
     logger.info("Loading %s (%s)", cfg.dataset_name, cfg.dataset_config)
-    raw: DatasetDict = load_dataset(cfg.dataset_name, cfg.dataset_config)
+    raw: DatasetDict = load_dataset(
+        cfg.dataset_name,
+        cfg.dataset_config,
+        trust_remote_code=True,
+    )
 
     _, label2id, _ = get_label_info(cfg)
     tokenizer = get_tokenizer(cfg)
