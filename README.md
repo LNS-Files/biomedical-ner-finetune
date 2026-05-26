@@ -25,6 +25,13 @@ BioBERT with LoRA, and evaluates entity-level precision, recall, and F1.
 
 ## Results
 
+Baseline BioBERT without any adapter:
+
+| Model                         | Precision | Recall |   F1   |
+| ---                           |   ---:    |  ---:  |  ---:  |
+| BioBERT baseline, no adapter  |  0.0292   | 0.1664 | 0.0496 |
+| BioBERT + LoRA                |  0.6768   | 0.8815 | 0.7657 |
+
 BC5CDR test set, LoRA BioBERT adapter with rank 32, class-weighted loss, and
 10 training epochs:
 
@@ -45,12 +52,20 @@ Overall test metrics:
 Create a Python 3.11 environment, install dependencies, and run:
 
 ```bash
+python -m venv .venv
+source .venv/Scripts/activate
+pip install -r requirements.txt
+
+python -m src.evaluate --no-adapter
 python -m src.train
 python -m src.evaluate --adapter-path results/lora-biobert-bc5cdr
 ```
 
 Local CPU training is slow. A GPU environment such as Kaggle or Colab is
 recommended for full training.
+
+Trained adapter weights are saved under `results/lora-biobert-bc5cdr/` locally
+but are not committed to Git because model artifacts can be large.
 
 ## Run On Kaggle
 
@@ -68,9 +83,13 @@ Use a GPU notebook with Internet enabled:
 ## Project Structure
 
 ```text
-src/config.py    Hyperparameters and dataset/model configuration
-src/data.py      BC5CDR loading, preprocessing, and token-label alignment
-src/model.py     BioBERT + LoRA/QLoRA model setup
-src/train.py     Training entry point
-src/evaluate.py  Test-set evaluation entry point
+src/config.py                  Hyperparameters and dataset/model configuration
+src/data.py                    BC5CDR loading, preprocessing, and token-label alignment
+src/model.py                   BioBERT + LoRA/QLoRA model setup
+src/train.py                   Training entry point
+src/evaluate.py                Test-set evaluation entry point
+notebooks/kaggle_train.ipynb   Kaggle training notebook
+results/baseline_metrics.json  Baseline BioBERT evaluation metrics
+requirements.txt               Main dependencies
+requirements-qlora.txt         Optional QLoRA dependency
 ```
