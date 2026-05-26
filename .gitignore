@@ -67,3 +67,6 @@ data/
 # Logs
 *.log
 logs/
+
+.claude/
+CLAUDE.md
